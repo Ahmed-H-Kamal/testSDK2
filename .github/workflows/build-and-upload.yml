@@ -1,0 +1,49 @@
+name: Test Second Project with SDK
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  fetch-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1. Checkout repo
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    # 2. Set up Java 11
+    - name: Set up Java 11
+      uses: actions/setup-java@v3
+      with:
+        java-version: '11'
+        distribution: 'temurin'
+
+    # 3. Create libs folder
+    - name: Create libs folder
+      run: mkdir -p libs
+
+    # 4. Download SDK JAR from JFrog
+    - name: Download HelloWorldSDK JAR from JFrog
+      env:
+        ARTIFACTORY_URL: ${{ secrets.ARTIFACTORY_URL }}
+        ARTIFACTORY_REPO: ${{ secrets.ARTIFACTORY_REPO }}
+        ARTIFACTORY_USERNAME: ${{ secrets.ARTIFACTORY_USERNAME }}
+        ARTIFACTORY_PASSWORD: ${{ secrets.ARTIFACTORY_PASSWORD }}
+      run: |
+        curl -u $ARTIFACTORY_USERNAME:$ARTIFACTORY_PASSWORD \
+             -o libs/HelloWorldSDK.jar \
+             $ARTIFACTORY_URL/$ARTIFACTORY_REPO/testSDK1-1.0.0.jar
+
+    # 5. Verify JAR is downloaded
+    - name: List libs folder
+      run: ls -l libs
+
+    # 6. Build and run unit tests
+    - name: Build and test
+      run: ./gradlew clean test
