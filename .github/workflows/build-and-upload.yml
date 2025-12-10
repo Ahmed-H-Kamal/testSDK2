@@ -37,7 +37,7 @@ jobs:
         ARTIFACTORY_PASSWORD: ${{ secrets.ARTIFACTORY_PASSWORD }}
       run: |
         curl -u $ARTIFACTORY_USERNAME:$ARTIFACTORY_PASSWORD \
-             -o libs/HelloWorldSDK.jar \
+             -o libs/testSDK1-1.0.0.jar \
              $ARTIFACTORY_URL/$ARTIFACTORY_REPO/testSDK1-1.0.0.jar
 
     # 5. Verify JAR is downloaded
