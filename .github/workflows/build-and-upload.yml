@@ -7,10 +7,8 @@ on:
   pull_request:
     branches:
       - main
-  workflow_run:
-    workflows: ["Build and Upload SDK"]
-    types:
-      - completed
+  repository_dispatch:
+    types: [testSDK1-completed]
 
 jobs:
   fetch-and-test:
