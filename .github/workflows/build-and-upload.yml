@@ -31,11 +31,11 @@ jobs:
       run: mkdir -p libs
 
     - name: Install JFrog CLI
-        run: |
+      run: |
           curl -fL https://getcli.jfrog.io | sh
           chmod +x jfrog
           sudo mv jfrog /usr/local/bin/
-          
+
     - name: Find Latest SDK
       id: find_sdk
       env:
