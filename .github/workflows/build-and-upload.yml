@@ -7,6 +7,8 @@ on:
   pull_request:
     branches:
       - main
+  # 1. Use the correct `client_payload` filter syntax if needed, 
+  # or ensure the `types` array is correctly formatted.
   repository_dispatch:
     types: [testSDK1-completed]
 
@@ -26,50 +28,71 @@ jobs:
         java-version: '11'
         distribution: 'temurin'
 
-    # 3. Create libs folder
-    - name: Create libs folder
-      run: mkdir -p libs
+    # 3. Create libs folder (done implicitly in Download step)
+    # - name: Create libs folder
+    #   run: mkdir -p libs
 
-    - name: Install JFrog CLI
+    - name: Install JFrog CLI and jq
       run: |
+          # Install JFrog CLI
           curl -fL https://getcli.jfrog.io | sh
           chmod +x jfrog
           sudo mv jfrog /usr/local/bin/
+          # Install jq for JSON parsing
+          sudo apt-get update && sudo apt-get install -y jq
 
-    - name: Find Latest SDK
-      id: find_sdk
+    - name: Find Latest SDK and Set Outputs
+      id: find_sdk # 🚨 Keep this ID for referencing outputs
       env:
           ARTIFACTORY_URL: ${{ secrets.ARTIFACTORY_URL }}
           ARTIFACTORY_USERNAME: ${{ secrets.ARTIFACTORY_USERNAME }}
           ARTIFACTORY_PASSWORD: ${{ secrets.ARTIFACTORY_PASSWORD }}
       run: |
-          # List all version folders
-          versions=$(jfrog rt curl -u $ARTIFACTORY_USERNAME:$ARTIFACTORY_PASSWORD \
-            "$ARTIFACTORY_URL/artifactory/api/storage/sdk-gradle-dev-local/sdk/javaSDK" \
+          # The ARTIFACTORY_URL in JFrog's API calls usually points to the base URL, 
+          # not including `/artifactory` if it's already in the secret/config.
+          # Assuming the secret does NOT end with `/artifactory`.
+          BASE_URL="$ARTIFACTORY_URL/artifactory"
+          REPO_PATH="sdk-gradle-dev-local/sdk/javaSDK"
+
+          # 1. List all version folders
+          VERSIONS=$(jfrog rt curl -u $ARTIFACTORY_USERNAME:$ARTIFACTORY_PASSWORD \
+            "$BASE_URL/api/storage/$REPO_PATH" \
             | jq -r '.children[].uri' | sed 's|/||' | sort -V -r)
           
-          latest_version=$(echo "$versions" | head -n 1)
-          echo "Latest version: $latest_version"
+          LATEST_VERSION=$(echo "$VERSIONS" | head -n 1)
+          echo "Latest version: $LATEST_VERSION"
 
-          # List timestamp folders inside latest version
-          timestamps=$(jfrog rt curl -u $ARTIFACTORY_USERNAME:$ARTIFACTORY_PASSWORD \
-            "$ARTIFACTORY_URL/artifactory/api/storage/sdk-gradle-dev-local/sdk/javaSDK/$latest_version" \
+          # 2. List timestamp folders inside latest version
+          TIMESTAMPS=$(jfrog rt curl -u $ARTIFACTORY_USERNAME:$ARTIFACTORY_PASSWORD \
+            "$BASE_URL/api/storage/$REPO_PATH/$LATEST_VERSION" \
             | jq -r '.children[].uri' | sed 's|/||' | sort -r)
           
-          latest_timestamp=$(echo "$timestamps" | head -n 1)
-          echo "Latest timestamp: $latest_timestamp"
+          LATEST_TIMESTAMP=$(echo "$TIMESTAMPS" | head -n 1)
+          echo "Latest timestamp: $LATEST_TIMESTAMP"
 
-          # Find the JAR
-          latest_jar=$(jfrog rt curl -u $ARTIFACTORY_USERNAME:$ARTIFACTORY_PASSWORD \
-            "$ARTIFACTORY_URL/artifactory/sdk-gradle-dev-local/sdk/javaSDK/$latest_version/$latest_timestamp/" \
+          # 3. Find the JAR
+          # Note: The 'api/storage' endpoint for getting children is usually better than 
+          # querying the full repo path for direct download.
+          JAR_INFO=$(jfrog rt curl -u $ARTIFACTORY_USERNAME:$ARTIFACTORY_PASSWORD \
+            "$BASE_URL/api/storage/$REPO_PATH/$LATEST_VERSION/$LATEST_TIMESTAMP" \
             | jq -r '.children[].uri' | grep '\.jar$' | head -n 1 | sed 's|/||')
+          
+          LATEST_JAR_FILENAME=$(echo "$JAR_INFO")
+          echo "Latest JAR Filename: $LATEST_JAR_FILENAME"
+          
+          # Construct the full download path in Artifactory
+          # This is the path used for direct download (not the storage API path)
+          DOWNLOAD_PATH="$REPO_PATH/$LATEST_VERSION/$LATEST_TIMESTAMP/$LATEST_JAR_FILENAME"
+          echo "Full Download Path: $DOWNLOAD_PATH"
 
-          echo "Latest JAR: $latest_jar"
-          echo "LATEST_VERSION=$latest_version" >> $GITHUB_ENV
-          echo "LATEST_TIMESTAMP=$latest_timestamp" >> $GITHUB_ENV
-          echo "LATEST_JAR=$latest_jar" >> $GITHUB_ENV
-
-          echo "LATEST_JAR_PATH=$LATEST_PATH" >> $GITHUB_ENV
+          # 🚨 The fix: Use the '::set-output' command (or the recommended method)
+          # to expose the variable as a step output.
+          echo "latest_download_path=$DOWNLOAD_PATH" >> $GITHUB_OUTPUT
+        
+    - name: Debug Output Path
+      run: |
+        # 🚨 Fix: Reference the output using the step ID and output name
+        echo "LATEST_DOWNLOAD_PATH (from output): ${{ steps.find_sdk.outputs.latest_download_path }}"
         
     # 4. Download SDK JAR from JFrog
     - name: Download latest SDK JAR
@@ -77,33 +100,31 @@ jobs:
         ARTIFACTORY_URL: ${{ secrets.ARTIFACTORY_URL }}
         ARTIFACTORY_USERNAME: ${{ secrets.ARTIFACTORY_USERNAME }}
         ARTIFACTORY_PASSWORD: ${{ secrets.ARTIFACTORY_PASSWORD }}
+        # 🚨 Fix: Reference the output from the previous step (find_sdk)
+        LATEST_DOWNLOAD_PATH: ${{ steps.find_sdk.outputs.latest_download_path }} 
+        # Note: ARTIFACTORY_URL assumed to be the base URL, not including `/artifactory`
+        BASE_URL: ${{ secrets.ARTIFACTORY_URL }}/artifactory 
 
       run: |
         # Create local folder for SDK
         mkdir -p libs
 
-        # Ensure LATEST_JAR_PATH is set
-        if [ -z "$LATEST_JAR_PATH" ]; then
-        echo "Error: LATEST_JAR_PATH is not set!"
-        exit 1
+        # Ensure LATEST_DOWNLOAD_PATH is set
+        if [ -z "$LATEST_DOWNLOAD_PATH" ]; then
+          echo "Error: LATEST_DOWNLOAD_PATH is not set!"
+          exit 1
         fi
 
         # Download the latest JAR
-        echo "Downloading $LATEST_JAR_PATH ..."
+        # 🚨 Fix: Use the computed BASE_URL and LATEST_DOWNLOAD_PATH
+        DOWNLOAD_URL="$BASE_URL/$LATEST_DOWNLOAD_PATH"
+        
+        echo "Downloading $DOWNLOAD_URL ..."
         curl -u "$ARTIFACTORY_USERNAME:$ARTIFACTORY_PASSWORD" \
          -o libs/testSDK1-1.0.0.jar \
-         "$ARTIFACTORY_URL/$LATEST_JAR_PATH"
+         "$DOWNLOAD_URL"
 
         echo "Download completed: libs/testSDK1-1.0.0.jar"
-
-    - name: Debug JFrog Path
-      env:
-        ARTIFACTORY_URL: ${{ secrets.ARTIFACTORY_URL }}
-        ARTIFACTORY_REPO: ${{ secrets.ARTIFACTORY_REPO }}
-        LATEST_JAR_PATH: ${{ steps.find.outputs.latest_jar }}
-
-      run: |
-        echo "LATEST_JAR_PATH: $LATEST_JAR_PATH"
 
     # 5. Verify JAR is downloaded
     - name: List libs folder
