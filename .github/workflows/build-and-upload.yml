@@ -30,17 +30,37 @@ jobs:
     - name: Create libs folder
       run: mkdir -p libs
 
-    # 4. Download SDK JAR from JFrog
-    - name: Download HelloWorldSDK JAR from JFrog
+    - name: Find latest SDK JAR in JFrog
+      id: find_jar
       env:
         ARTIFACTORY_URL: ${{ secrets.ARTIFACTORY_URL }}
-        ARTIFACTORY_REPO: ${{ secrets.ARTIFACTORY_REPO }}
         ARTIFACTORY_USERNAME: ${{ secrets.ARTIFACTORY_USERNAME }}
         ARTIFACTORY_PASSWORD: ${{ secrets.ARTIFACTORY_PASSWORD }}
+
       run: |
+        LATEST_PATH=$(curl -s -u $ARTIFACTORY_USERNAME:$ARTIFACTORY_PASSWORD \
+        -X POST "$ARTIFACTORY_URL/artifactory/api/search/aql" \
+        -d 'items.find({
+            "repo": "sdk",
+            "path": {"$match": "javaSDK/*/*"},
+            "name": {"$match": "v2xsdk4java_basic-*.jar"}
+          }).sort({"$desc": ["created"]}).limit(1)' | jq -r '.results[0] | "\(.repo)/\(.path)/\(.name)"')
+        echo "LATEST_JAR_PATH=$LATEST_PATH" >> $GITHUB_ENV
+
+
+    # 4. Download SDK JAR from JFrog
+    - name: Download latest SDK JAR
+      env:
+        ARTIFACTORY_URL: ${{ secrets.ARTIFACTORY_URL }}
+        ARTIFACTORY_USERNAME: ${{ secrets.ARTIFACTORY_USERNAME }}
+        ARTIFACTORY_PASSWORD: ${{ secrets.ARTIFACTORY_PASSWORD }}
+        LATEST_JAR_PATH: ${{ env.LATEST_JAR_PATH }}
+      run: |
+        mkdir -p libs
         curl -u $ARTIFACTORY_USERNAME:$ARTIFACTORY_PASSWORD \
-             -o libs/testSDK1-1.0.0.jar \
-             $ARTIFACTORY_URL/$ARTIFACTORY_REPO/testSDK1-1.0.0.jar
+         -o libs/v2xsdk4java_basic.jar \
+         $ARTIFACTORY_URL/$LATEST_JAR_PATH
+
 
     # 5. Verify JAR is downloaded
     - name: List libs folder
