@@ -44,7 +44,7 @@ jobs:
         AQL_QUERY=$(cat <<EOF
         items.find({
         "repo": {"\$eq": "$ARTIFACTORY_REPO"},
-        "path": {"\$match": "sdk/javaSDK/*/*"},
+        "path": {"\$match": "sdk/javaSDK/*"},
         "name": {"\$match": "*.jar"}
         }).sort({"\$desc" : ["created"]}).limit(1)
         EOF
