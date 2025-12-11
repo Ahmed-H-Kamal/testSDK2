@@ -59,7 +59,7 @@ jobs:
         mkdir -p libs
         curl -u $ARTIFACTORY_USERNAME:$ARTIFACTORY_PASSWORD \
          -o libs/testSDK1-1.0.0.jar \
-         $ARTIFACTORY_URL/$LATEST_JAR_PATH
+         $ARTIFACTORY_URL/$ARTIFACTORY_REPO/$LATEST_JAR_PATH
 
 
     # 5. Verify JAR is downloaded
