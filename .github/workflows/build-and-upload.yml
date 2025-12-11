@@ -30,36 +30,43 @@ jobs:
     - name: Create libs folder
       run: mkdir -p libs
 
-    - name: Find latest SDK JAR in JFrog
+ 
+    # 3. Find the latest SDK JAR in JFrog
+    - name: Find latest SDK JAR
       id: find_jar
       env:
         ARTIFACTORY_URL: ${{ secrets.ARTIFACTORY_URL }}
         ARTIFACTORY_REPO: ${{ secrets.ARTIFACTORY_REPO }}
         ARTIFACTORY_USERNAME: ${{ secrets.ARTIFACTORY_USERNAME }}
         ARTIFACTORY_PASSWORD: ${{ secrets.ARTIFACTORY_PASSWORD }}
-
       run: |
-        echo "Searching in repo: $ARTIFACTORY_REPO"
+        echo "Searching for latest JAR in repo: $ARTIFACTORY_REPO"
 
+        # AQL query to get latest testSDK1 JAR
         AQL_QUERY=$(cat <<EOF
         items.find({
         "repo": {"\$eq": "$ARTIFACTORY_REPO"},
         "path": {"\$match": "sdk/javaSDK/*"},
-        "name": {"\$match": "*.jar"}
-        }).sort({"\$desc" : ["created"]}).limit(1)
+        "name": {"\$match": "testSDK1-*.jar"}
+        }).sort({"\$desc": ["created"]}).limit(1)
         EOF
         )
 
         LATEST_PATH=$(curl -s -u "$ARTIFACTORY_USERNAME:$ARTIFACTORY_PASSWORD" \
-        -X POST "$ARTIFACTORY_URL/api/search/aql" \
-        -d "$AQL_QUERY" | jq -r '.results[0] | "\(.repo)/\(.path)/\(.name)"')
+          -X POST "$ARTIFACTORY_URL/api/search/aql" \
+          -d "$AQL_QUERY" | jq -r '.results[0] | "\(.repo)/\(.path)/\(.name)"')
 
-        echo "Found latest path: $LATEST_PATH"
+        echo "Found latest JAR path: $LATEST_PATH"
+
+        if [ -z "$LATEST_PATH" ]; then
+          echo "Error: No JAR found!"
+          exit 1
+        fi
 
         echo "LATEST_JAR_PATH=$LATEST_PATH" >> $GITHUB_ENV
-        
-    # 4. Download SDK JAR from JFrog
-    - name: Download latest SDK JAR
+
+    # 4. Download the latest JAR
+    - name: Download latest JAR
       env:
         ARTIFACTORY_URL: ${{ secrets.ARTIFACTORY_URL }}
         ARTIFACTORY_USERNAME: ${{ secrets.ARTIFACTORY_USERNAME }}
@@ -67,18 +74,12 @@ jobs:
         LATEST_JAR_PATH: ${{ env.LATEST_JAR_PATH }}
       run: |
         mkdir -p libs
-        curl -u $ARTIFACTORY_USERNAME:$ARTIFACTORY_PASSWORD \
-         -o libs/testSDK1-1.0.0.jar \
-         $ARTIFACTORY_URL/$ARTIFACTORY_REPO/$LATEST_JAR_PATH
+        echo "Downloading JAR from: $LATEST_JAR_PATH"
+        curl -f -u "$ARTIFACTORY_USERNAME:$ARTIFACTORY_PASSWORD" \
+             -o libs/testSDK1-latest.jar \
+             "$ARTIFACTORY_URL/$LATEST_JAR_PATH"
 
-    - name: Debug JFrog Path
-      env:
-        ARTIFACTORY_URL: ${{ secrets.ARTIFACTORY_URL }}
-        ARTIFACTORY_REPO: ${{ secrets.ARTIFACTORY_REPO }}
-        LATEST_JAR_PATH: ${{ steps.find.outputs.latest_jar }}
-
-      run: |
-        echo "LATEST_JAR_PATH: $LATEST_JAR_PATH"
+        ls -lh libs/
 
     # 5. Verify JAR is downloaded
     - name: List libs folder
