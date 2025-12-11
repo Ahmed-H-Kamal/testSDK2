@@ -8,7 +8,7 @@ on:
     branches:
       - main
   repository_dispatch:
-    types: [testSDK1-completed]
+    types: [step-sdk-external-java-v2xsdk4javav2-completed]
 
 jobs:
   fetch-and-test:
