@@ -58,7 +58,7 @@ jobs:
       run: |
         mkdir -p libs
         curl -u $ARTIFACTORY_USERNAME:$ARTIFACTORY_PASSWORD \
-         -o libs/v2xsdk4java_basic.jar \
+         -o libs/testSDK1-1.0.0.jar \
          $ARTIFACTORY_URL/$LATEST_JAR_PATH
 
 
