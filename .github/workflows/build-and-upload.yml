@@ -43,7 +43,7 @@ jobs:
         -d 'items.find({
             "repo": "sdk",
             "path": {"$match": "javaSDK/*/*"},
-            "name": {"$match": "v2xsdk4java_basic-*.jar"}
+            "name": {"$match": "testSDK1-*.jar"}
           }).sort({"$desc": ["created"]}).limit(1)' | jq -r '.results[0] | "\(.repo)/\(.path)/\(.name)"')
         echo "LATEST_JAR_PATH=$LATEST_PATH" >> $GITHUB_ENV
 
