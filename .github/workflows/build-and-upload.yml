@@ -61,6 +61,17 @@ jobs:
          -o libs/testSDK1-1.0.0.jar \
          $ARTIFACTORY_URL/$ARTIFACTORY_REPO/$LATEST_JAR_PATH
 
+    - name: Debug JFrog Path
+      env:
+        ARTIFACTORY_URL: ${{ secrets.ARTIFACTORY_URL }}
+        ARTIFACTORY_REPO: ${{ secrets.ARTIFACTORY_REPO }}
+        LATEST_JAR_PATH: ${{ steps.find.outputs.latest_jar }}
+
+      run: |
+        echo "ARTIFACTORY_URL: $ARTIFACTORY_URL"
+        echo "ARTIFACTORY_REPO: $ARTIFACTORY_REPO"
+        echo "LATEST_JAR_PATH: $LATEST_JAR_PATH"
+        echo "Full URL: $ARTIFACTORY_URL/$ARTIFACTORY_REPO/$LATEST_JAR_PATH"
 
     # 5. Verify JAR is downloaded
     - name: List libs folder
