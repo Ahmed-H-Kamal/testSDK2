@@ -34,20 +34,30 @@ jobs:
       id: find_jar
       env:
         ARTIFACTORY_URL: ${{ secrets.ARTIFACTORY_URL }}
+        ARTIFACTORY_REPO: ${{ secrets.ARTIFACTORY_REPO }}
         ARTIFACTORY_USERNAME: ${{ secrets.ARTIFACTORY_USERNAME }}
         ARTIFACTORY_PASSWORD: ${{ secrets.ARTIFACTORY_PASSWORD }}
 
       run: |
-        LATEST_PATH=$(curl -s -u $ARTIFACTORY_USERNAME:$ARTIFACTORY_PASSWORD \
-        -X POST "$ARTIFACTORY_URL/artifactory/api/search/aql" \
-        -d 'items.find({
-            "repo": "sdk",
-            "path": {"$match": "javaSDK/*/*"},
-            "name": {"$match": "testSDK1-*.jar"}
-          }).sort({"$desc": ["created"]}).limit(1)' | jq -r '.results[0] | "\(.repo)/\(.path)/\(.name)"')
+        echo "Searching in repo: $ARTIFACTORY_REPO"
+
+        AQL_QUERY=$(cat <<EOF
+        items.find({
+        "repo": {"\$eq": "$ARTIFACTORY_REPO"},
+        "path": {"\$match": "sdk/javaSDK/*/*"},
+        "name": {"\$match": "*.jar"}
+        }).sort({"\$desc" : ["created"]}).limit(1)
+        EOF
+        )
+
+        LATEST_PATH=$(curl -s -u "$ARTIFACTORY_USERNAME:$ARTIFACTORY_PASSWORD" \
+        -X POST "$ARTIFACTORY_URL/api/search/aql" \
+        -d "$AQL_QUERY" | jq -r '.results[0] | "\(.repo)/\(.path)/\(.name)"')
+
+        echo "Found latest path: $LATEST_PATH"
+
         echo "LATEST_JAR_PATH=$LATEST_PATH" >> $GITHUB_ENV
-
-
+        
     # 4. Download SDK JAR from JFrog
     - name: Download latest SDK JAR
       env:
