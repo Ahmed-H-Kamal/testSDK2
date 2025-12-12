@@ -3,10 +3,10 @@ name: Test Second Project with SDK
 on:
   push:
     branches:
-      - main
+      - test2
   pull_request:
     branches:
-      - main
+      - test2
   repository_dispatch:
     types: [step-sdk-external-java-v2xsdk4javav2-completed]
 
