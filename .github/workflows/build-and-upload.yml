@@ -7,7 +7,8 @@ on:
   pull_request:
     branches:
       - main
-
+  repository_dispatch:
+    types: [step-sdk-external-java-v2xsdk4javav2-completed]
 
 jobs:
   fetch-and-test:
