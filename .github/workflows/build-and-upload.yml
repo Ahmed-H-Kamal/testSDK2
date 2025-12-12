@@ -6,7 +6,7 @@ on:
       - test2
   pull_request:
     branches:
-      - test2
+      - main
   repository_dispatch:
     types: [step-sdk-external-java-v2xsdk4javav2-completed]
 
