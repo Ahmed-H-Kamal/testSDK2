@@ -3,7 +3,7 @@ name: Test Second Project with SDK
 on:
   push:
     branches:
-      - test2
+      - main
   pull_request:
     branches:
       - main
